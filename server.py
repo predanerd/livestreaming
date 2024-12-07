@@ -11,20 +11,20 @@ import time
 app = Flask(__name__, static_url_path='/front')
 
 def generate_frames():
- camera = cv2.VideoCapture(0) # ==============IMPORTANT============
- while True:
-  start_time = time.time()
-  success, frame = camera.read()
-  if not success:
-   break
-  else:
-   ret, buffer = cv2.imencode('.jpg', frame)
-   frame = buffer.tobytes()
-   # concat frame one by one and show result
-   yield (b'--frame\r\n'
-    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n') 
-   elapsed_time = time.time() - start_time
-          logging.debug(f"Frame generation time: {elapsed_time} seconds")
+    pipe_me = 'v4l2src device=/dev/video0 ! "image/jpeg,width=1280,height=720" ! jpegdec ! videoconvert ! appsink'
+    camera = cv2.VideoCapture(pipe_me) # ==============IMPORTANT============
+    while True:
+        start_time = time.time()
+        success, frame = camera.read()
+        if not success:
+            break
+        else:
+            ret, buffer = cv2.imencode('.jpg', frame)
+            frame = buffer.tobytes()
+        # concat frame one by one and show result
+            yield (b'--frame\r\n'b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n') 
+            elapsed_time = time.time() - start_time
+            logging.debug(f"Frame generation time: {elapsed_time} seconds")
 
 @app.route('/')
 def index():
@@ -49,3 +49,21 @@ async def offer_async():
     response_data = {"sdp": pc.localDescription.sdp, "type": pc.localDescription.type}
 
     return jsonify(response_data)
+
+def offer():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    future = asyncio.run_coroutine_threadsafe(offer_async(), loop)
+    return future.result()
+
+@app.route('/offer', methods=['POST'])
+def offer_route():
+    return offer()
+
+@app.route('/video_feed')
+def video_feed():
+    return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+if __name__ == "__main__":
+    app.run(debug=True, host='0.0.0.0')
