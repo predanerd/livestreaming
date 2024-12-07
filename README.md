@@ -1,6 +1,7 @@
 Built using flask.
 
 To run: python/python3 server.py
+
 To access: Use localhost IP for same machine, server IP for different machine
 
 __Things to do__
